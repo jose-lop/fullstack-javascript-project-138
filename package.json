@@ -1,0 +1,21 @@
+{
+  "name": "@hexlet/code",
+  "version": "1.0.0",
+  "description": "[![Actions Status](https://github.com/jose-lop/fullstack-javascript-project-138/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/jose-lop/fullstack-javascript-project-138/actions)",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jose-lop/fullstack-javascript-project-138.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jose-lop/fullstack-javascript-project-138/issues"
+  },
+  "homepage": "https://github.com/jose-lop/fullstack-javascript-project-138#readme"
+}
