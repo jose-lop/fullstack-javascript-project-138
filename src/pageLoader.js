@@ -3,7 +3,7 @@ import path from "path";
 import axios from "axios";
 import * as cheerio from "cheerio";
 
-// 🔹 1. Helpers de nombres
+// 🔹 Genera nombre del archivo HTML
 const makeFileName = (url) => {
   const { hostname, pathname } = new URL(url);
 
@@ -14,28 +14,33 @@ const makeFileName = (url) => {
   return `${name}.html`;
 };
 
+// 🔹 Genera nombre de carpeta _files
 const makeFilesDirName = (fileName) => fileName.replace(".html", "_files");
 
-// 🔹 2. Helper para extraer recursos (AQUÍ VA)
-const getResources = (html) => {
+// 🔹 Extrae solo recursos locales
+const getResources = (html, baseUrl) => {
   const $ = cheerio.load(html);
+  const base = new URL(baseUrl);
 
-  const imgSrc = $("img")
-    .map((_, el) => $(el).attr("src"))
-    .get();
+  const resources = [
+    ...$("img")
+      .map((_, el) => $(el).attr("src"))
+      .get(),
+    ...$("script")
+      .map((_, el) => $(el).attr("src"))
+      .get(),
+    ...$("link")
+      .map((_, el) => $(el).attr("href"))
+      .get(),
+  ].filter(Boolean);
 
-  const scriptSrc = $("script")
-    .map((_, el) => $(el).attr("src"))
-    .get();
-
-  const linkHref = $("link")
-    .map((_, el) => $(el).attr("href"))
-    .get();
-
-  return [...imgSrc, ...scriptSrc, ...linkHref].filter(Boolean);
+  return resources
+    .map((resource) => new URL(resource, baseUrl))
+    .filter((resourceUrl) => resourceUrl.hostname === base.hostname)
+    .map((resourceUrl) => resourceUrl.href);
 };
 
-// 🔹 3. Función principal
+// 🔹 Función principal
 const pageLoader = (url, outputDir = process.cwd()) => {
   const fileName = makeFileName(url);
   const filePath = path.join(outputDir, fileName);
@@ -48,8 +53,11 @@ const pageLoader = (url, outputDir = process.cwd()) => {
     .then((response) => {
       const html = response.data;
 
-      const resources = getResources(html);
-      console.log(resources); // temporal para ver qué detecta
+      // Detectar recursos locales
+      const resources = getResources(html, url);
+
+      // Temporal (puedes quitarlo luego)
+      console.log(resources);
 
       return fs.writeFile(filePath, html);
     })
