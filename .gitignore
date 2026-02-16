@@ -1,0 +1,5 @@
+node_modules/
+*_files/
+*.html
+*.cast
+README.md.save
