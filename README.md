@@ -13,3 +13,9 @@
 ## Debug demo
 
 [![asciicast](https://asciinema.org/a/XaPxe6Ns7QxJ1Zh6.svg)](https://asciinema.org/a/XaPxe6Ns7QxJ1Zh6)
+
+## Error handling demo
+
+Example of execution when a network error occurs and the program exits with code 1:
+
+[![asciicast](https://asciinema.org/a/RpeN9B4ReYqViRvA.svg)](https://asciinema.org/a/RpeN9B4ReYqViRvA)
