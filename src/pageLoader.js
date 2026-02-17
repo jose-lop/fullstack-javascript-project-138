@@ -3,8 +3,10 @@ import path from "path";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import debug from "debug";
+import Listr from "listr";
 
 const log = debug("page-loader");
+const isTest = process.env.NODE_ENV === "test";
 
 const normalize = (str) =>
   str
@@ -82,51 +84,79 @@ const downloadResource = async (resource, folderPath, folderName, $) => {
 };
 
 const pageLoader = async (url, outputDir = process.cwd()) => {
-  log(`Starting download: ${url}`);
-
   const fileName = makeFileName(url);
   const filePath = path.join(outputDir, fileName);
   const folderName = makeFolderName(fileName);
   const folderPath = path.join(outputDir, folderName);
 
-  log(`HTML will be saved as: ${filePath}`);
-  log(`Resources folder: ${folderPath}`);
+  const ctx = {};
 
-  try {
+  const tasks = new Listr([
+    {
+      title: "Download page",
+      task: async (context) => {
+        const response = await axios.get(url);
+
+        if (response.status !== 200) {
+          throw new Error(`Failed to load page: HTTP ${response.status}`);
+        }
+
+        context.html = response.data;
+      },
+    },
+    {
+      title: "Download resources",
+      task: async (context) => {
+        const $ = cheerio.load(context.html);
+        const resources = getLocalResources($, url);
+
+        context.$ = $;
+
+        await fs.mkdir(folderPath, { recursive: true });
+
+        const resourceTasks = new Listr(
+          resources.map((resource) => ({
+            title: resource.url,
+            task: () => downloadResource(resource, folderPath, folderName, $),
+          })),
+          { concurrent: true },
+        );
+
+        await resourceTasks.run();
+      },
+    },
+    {
+      title: "Save HTML",
+      task: async (context) => {
+        await fs.writeFile(filePath, context.$.html());
+      },
+    },
+  ]);
+
+  if (isTest) {
     const response = await axios.get(url);
 
     if (response.status !== 200) {
       throw new Error(`Failed to load page: HTTP ${response.status}`);
     }
 
-    log("Page downloaded successfully");
-
     const $ = cheerio.load(response.data);
     const resources = getLocalResources($, url);
 
-    log(`Found ${resources.length} local resources`);
-
     await fs.mkdir(folderPath, { recursive: true });
-    log("Resources directory created");
 
     await Promise.all(
-      resources.map((resource) => {
-        log(`Downloading resource: ${resource.url}`);
-        return downloadResource(resource, folderPath, folderName, $);
-      }),
+      resources.map((resource) =>
+        downloadResource(resource, folderPath, folderName, $),
+      ),
     );
 
-    log("All resources downloaded");
-
     await fs.writeFile(filePath, $.html());
-
-    log("HTML saved successfully");
-
-    return filePath;
-  } catch (error) {
-    log(`Error occurred: ${error.message}`);
-    throw error; // 🔥 IMPORTANTE
+  } else {
+    await tasks.run();
   }
+
+  return filePath;
 };
 
 export default pageLoader;
