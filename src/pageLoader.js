@@ -2,94 +2,92 @@ import fs from "fs/promises";
 import path from "path";
 import axios from "axios";
 import * as cheerio from "cheerio";
-import debug from "debug";
 import Listr from "listr";
 
-const log = debug("page-loader");
-const isTest = process.env.NODE_ENV === "test";
+const pageLoader = async (url, outputDir = process.cwd()) => {
+  // Validar que el directorio exista
+  await fs.access(outputDir);
 
-const normalize = (str) =>
-  str
-    .replace(/[^a-zA-Z0-9]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/-$/, "");
+  // ==============================
+  // Helpers
+  // ==============================
 
-const makeFileName = (url) => {
-  const { hostname, pathname } = new URL(url);
-  return `${normalize(`${hostname}${pathname}`)}.html`;
-};
+  const normalize = (str) =>
+    str
+      .replace(/[^a-zA-Z0-9]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/-$/, "");
 
-const makeFolderName = (fileName) => fileName.replace(".html", "_files");
+  const makeFileName = (url) => {
+    const { hostname, pathname } = new URL(url);
+    return `${normalize(`${hostname}${pathname}`)}.html`;
+  };
 
-const makeResourceName = (url) => {
-  const { hostname, pathname } = new URL(url);
-  const ext = path.extname(pathname);
-  const nameWithoutExt = pathname.replace(ext, "");
-  return `${normalize(`${hostname}${nameWithoutExt}`)}${ext}`;
-};
+  const makeFolderName = (fileName) => fileName.replace(".html", "_files");
 
-const getLocalResources = ($, baseUrl) => {
-  const baseHostname = new URL(baseUrl).hostname;
+  const makeResourceName = (url) => {
+    const { hostname, pathname } = new URL(url);
+    const ext = path.extname(pathname);
+    const nameWithoutExt = pathname.replace(ext, "");
+    return `${normalize(`${hostname}${nameWithoutExt}`)}${ext}`;
+  };
 
-  const selectors = [
-    { tag: "img", attr: "src" },
-    { tag: "script", attr: "src" },
-    { tag: "link", attr: "href" },
-  ];
+  const getLocalResources = ($, baseUrl) => {
+    const tags = [
+      { tag: "img", attr: "src" },
+      { tag: "link", attr: "href" },
+      { tag: "script", attr: "src" },
+    ];
 
-  return selectors.flatMap(({ tag, attr }) =>
-    $(tag)
-      .map((_, element) => {
-        const value = $(element).attr(attr);
-        if (!value) return null;
+    const resources = [];
 
-        const absoluteUrl = new URL(value, baseUrl);
+    tags.forEach(({ tag, attr }) => {
+      $(tag).each((_, element) => {
+        const resourceUrl = $(element).attr(attr);
+        if (!resourceUrl) return;
 
-        if (absoluteUrl.hostname !== baseHostname) return null;
+        try {
+          const absoluteUrl = new URL(resourceUrl, baseUrl);
 
-        return {
-          element,
-          url: absoluteUrl.href,
-          attr,
-        };
-      })
-      .get()
-      .filter(Boolean),
-  );
-};
+          if (absoluteUrl.hostname === new URL(baseUrl).hostname) {
+            resources.push({
+              element,
+              attr,
+              url: absoluteUrl.href,
+            });
+          }
+        } catch (e) {
+          // Ignorar URLs inválidas
+        }
+      });
+    });
 
-const downloadResource = async (resource, folderPath, folderName, $) => {
-  const resourceName = makeResourceName(resource.url);
-  const resourcePath = path.join(folderPath, resourceName);
+    return resources;
+  };
 
-  try {
-    const response = await axios.get(resource.url, {
+  const downloadResource = async (resource, folderPath, folderName, $) => {
+    const { url, element, attr } = resource;
+
+    const response = await axios.get(url, {
       responseType: "arraybuffer",
     });
 
-    if (response.status !== 200) {
-      throw new Error(
-        `Failed to download resource ${resource.url}: HTTP ${response.status}`,
-      );
-    }
+    const resourceName = makeResourceName(url);
+    const resourcePath = path.join(folderPath, resourceName);
 
     await fs.writeFile(resourcePath, response.data);
 
-    $(resource.element).attr(resource.attr, `${folderName}/${resourceName}`);
-  } catch (error) {
-    throw new Error(
-      `Error downloading resource ${resource.url}: ${error.message}`,
-    );
-  }
-};
+    $(element).attr(attr, `${folderName}/${resourceName}`);
+  };
 
-const pageLoader = async (url, outputDir = process.cwd()) => {
+  // ==============================
+  // Paths
+  // ==============================
+
   const fileName = makeFileName(url);
   const filePath = path.join(outputDir, fileName);
   const folderName = makeFolderName(fileName);
   const folderPath = path.join(outputDir, folderName);
-
-  const ctx = {};
 
   const tasks = new Listr([
     {
@@ -114,15 +112,11 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
 
         await fs.mkdir(folderPath, { recursive: true });
 
-        const resourceTasks = new Listr(
-          resources.map((resource) => ({
-            title: resource.url,
-            task: () => downloadResource(resource, folderPath, folderName, $),
-          })),
-          { concurrent: true },
+        await Promise.all(
+          resources.map((resource) =>
+            downloadResource(resource, folderPath, folderName, $),
+          ),
         );
-
-        await resourceTasks.run();
       },
     },
     {
@@ -133,28 +127,7 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
     },
   ]);
 
-  if (isTest) {
-    const response = await axios.get(url);
-
-    if (response.status !== 200) {
-      throw new Error(`Failed to load page: HTTP ${response.status}`);
-    }
-
-    const $ = cheerio.load(response.data);
-    const resources = getLocalResources($, url);
-
-    await fs.mkdir(folderPath, { recursive: true });
-
-    await Promise.all(
-      resources.map((resource) =>
-        downloadResource(resource, folderPath, folderName, $),
-      ),
-    );
-
-    await fs.writeFile(filePath, $.html());
-  } else {
-    await tasks.run();
-  }
+  await tasks.run();
 
   return filePath;
 };
