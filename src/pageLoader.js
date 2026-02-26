@@ -5,12 +5,12 @@ import * as cheerio from "cheerio";
 import Listr from "listr";
 
 const pageLoader = async (url, outputDir = process.cwd()) => {
-  // Validar que el directorio exista
+  // Validar directorio
   await fs.access(outputDir);
 
-  // ==============================
+  // =========================
   // Helpers
-  // ==============================
+  // =========================
 
   const normalize = (str) =>
     str
@@ -20,14 +20,15 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
 
   const makeFileName = (url) => {
     const { hostname, pathname } = new URL(url);
-    return `${normalize(`${hostname}${pathname}`)}.html`;
+    const name = pathname === "/" ? "" : pathname;
+    return `${normalize(`${hostname}${name}`)}.html`;
   };
 
   const makeFolderName = (fileName) => fileName.replace(".html", "_files");
 
   const makeResourceName = (url) => {
     const { hostname, pathname } = new URL(url);
-    const ext = path.extname(pathname);
+    const ext = path.extname(pathname) || ".html";
     const nameWithoutExt = pathname.replace(ext, "");
     return `${normalize(`${hostname}${nameWithoutExt}`)}${ext}`;
   };
@@ -37,6 +38,7 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
       { tag: "img", attr: "src" },
       { tag: "link", attr: "href" },
       { tag: "script", attr: "src" },
+      { tag: "a", attr: "href" }, // 👈 necesario para html internos
     ];
 
     const resources = [];
@@ -57,7 +59,7 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
             });
           }
         } catch (e) {
-          // Ignorar URLs inválidas
+          // ignorar URLs inválidas
         }
       });
     });
@@ -66,13 +68,13 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
   };
 
   const downloadResource = async (resource, folderPath, folderName, $) => {
-    const { url, element, attr } = resource;
+    const { url: resourceUrl, element, attr } = resource;
 
-    const response = await axios.get(url, {
+    const response = await axios.get(resourceUrl, {
       responseType: "arraybuffer",
     });
 
-    const resourceName = makeResourceName(url);
+    const resourceName = makeResourceName(resourceUrl);
     const resourcePath = path.join(folderPath, resourceName);
 
     await fs.writeFile(resourcePath, response.data);
@@ -80,9 +82,9 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
     $(element).attr(attr, `${folderName}/${resourceName}`);
   };
 
-  // ==============================
+  // =========================
   // Paths
-  // ==============================
+  // =========================
 
   const fileName = makeFileName(url);
   const filePath = path.join(outputDir, fileName);
@@ -96,7 +98,7 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
         const response = await axios.get(url);
 
         if (response.status !== 200) {
-          throw new Error(`Failed to load page: HTTP ${response.status}`);
+          throw new Error(`Request failed with status code ${response.status}`);
         }
 
         context.html = response.data;
@@ -110,13 +112,15 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
 
         context.$ = $;
 
-        await fs.mkdir(folderPath, { recursive: true });
+        if (resources.length > 0) {
+          await fs.mkdir(folderPath, { recursive: true });
 
-        await Promise.all(
-          resources.map((resource) =>
-            downloadResource(resource, folderPath, folderName, $),
-          ),
-        );
+          await Promise.all(
+            resources.map((resource) =>
+              downloadResource(resource, folderPath, folderName, $),
+            ),
+          );
+        }
       },
     },
     {
