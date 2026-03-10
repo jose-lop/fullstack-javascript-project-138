@@ -114,17 +114,19 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
         if (resources.length > 0) {
           await fs.mkdir(folderPath, { recursive: true });
 
-          resources.map((resource) => ({
-            title: resource.url,
-            task: () => downloadResource().catch(_.noop),
-          }));
+          await Promise.all(
+            resources.map((resource) =>
+              downloadResource(resource, folderPath, folderName, $),
+            ),
+          );
         }
       },
     },
     {
       title: "Save HTML",
       task: async (context) => {
-        await fs.writeFile(filePath, context.$.html());
+        const $ = context.$ || cheerio.load(context.html);
+        await fs.writeFile(filePath, $.html());
       },
     },
   ]);
