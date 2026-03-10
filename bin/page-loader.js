@@ -1,25 +1,34 @@
 #!/usr/bin/env node
-
-import { Command } from "commander";
-import pageLoader from "../src/pageLoader.js";
-
-const program = new Command();
+import { program } from "commander";
+import path from "path";
+import downloadPage from "../src/pageLoader.js"; // Importa como default
 
 program
-  .name("page-loader")
-  .description("Page loader utility")
   .version("1.0.0")
-  .argument("<url>")
-  .option("-o, --output <dir>", "output dir", process.cwd())
-  .action(async (url, options) => {
-    try {
-      const filePath = await pageLoader(url, options.output);
-      console.log(filePath);
-      process.exit(0); // explícito
-    } catch (error) {
-      console.error(`Error: ${error.message}`);
-      process.exit(1);
-    }
+  .description("Downloads a webpage and its resources.")
+  .option(
+    "-o, --output [dir]",
+    "output directory (default: current working directory)",
+    process.cwd(),
+  )
+  .arguments("<url>")
+  .action((url, options) => {
+    const outputDir = path.resolve(options.output);
+    downloadPage(url, outputDir)
+      .then(({ filepath }) => {
+        console.log(`Page was successfully downloaded into '${filepath}'`);
+      })
+      .catch((error) => {
+        console.error(error.message);
+        process.exit(1);
+      });
   });
+
+program.on("--help", () => {
+  console.log("");
+  console.log("Example usage:");
+  console.log("  $ page-loader -o ./output https://example.com");
+  console.log("");
+});
 
 program.parse(process.argv);

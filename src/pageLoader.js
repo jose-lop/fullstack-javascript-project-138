@@ -38,7 +38,6 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
       { tag: "img", attr: "src" },
       { tag: "link", attr: "href" },
       { tag: "script", attr: "src" },
-      { tag: "a", attr: "href" }, // 👈 necesario para html internos
     ];
 
     const resources = [];
@@ -115,11 +114,10 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
         if (resources.length > 0) {
           await fs.mkdir(folderPath, { recursive: true });
 
-          await Promise.all(
-            resources.map((resource) =>
-              downloadResource(resource, folderPath, folderName, $),
-            ),
-          );
+          resources.map((resource) => ({
+            title: resource.url,
+            task: () => downloadResource().catch(_.noop),
+          }));
         }
       },
     },
