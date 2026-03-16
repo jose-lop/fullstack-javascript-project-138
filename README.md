@@ -6,6 +6,8 @@
 
 [![Test Coverage](https://api.codeclimate.com/v1/badges/17afe6a5-0450-43f5-8e84-234871a7485d/test_coverage)](https://codeclimate.com/github/jose-lop/fullstack-javascript-project-138/test_coverage)
 
+[![Actions Status](https://github.com/jose-lop/fullstack-javascript-project-138/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/jose-lop/fullstack-javascript-project-138/actions)
+
 ## Description
 
 **Page Loader** is a command-line utility that downloads web pages and saves them locally.
