@@ -6,6 +6,7 @@
   "bin": {
     "page-loader": "./bin/page-loader.js"
   },
+  "main": "src/pageLoader.js",
   "scripts": {
     "start": "node bin/page-loader.js",
     "test": "NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest",
