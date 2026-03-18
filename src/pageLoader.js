@@ -1,19 +1,19 @@
-import axios from "axios";
-import path from "path";
-import { promises as fs } from "fs";
-import { URL } from "url";
-import * as cheerio from "cheerio";
-import debug from "debug";
-import _ from "lodash";
-import { Listr } from "listr2";
+import axios from 'axios';
+import path from 'path';
+import { promises as fs } from 'fs';
+import { URL } from 'url';
+import * as cheerio from 'cheerio';
+import debug from 'debug';
+import _ from 'lodash';
+import { Listr } from 'listr2';
 import {
   urlToFilename,
   urlToDirname,
   getExtension,
   sanitizeOutputDir,
-} from "./utils.js";
+} from './utils.js';
 
-const log = debug("page-loader");
+const log = debug('page-loader');
 
 //  Procesa y reemplaza las URLs de recursos dentro del HTML
 const processResource = (
@@ -47,33 +47,32 @@ const processResources = (baseUrl, baseDirname, html) => {
   const $ = cheerio.load(html, { decodeEntities: false });
   const assets = [];
 
-  processResource($, "img", "src", baseUrl, baseDirname, assets);
-  processResource($, "link", "href", baseUrl, baseDirname, assets);
-  processResource($, "script", "src", baseUrl, baseDirname, assets);
+  processResource($, 'img', 'src', baseUrl, baseDirname, assets);
+  processResource($, 'link', 'href', baseUrl, baseDirname, assets);
+  processResource($, 'script', 'src', baseUrl, baseDirname, assets);
 
   return { html: $.html(), assets };
 };
 
-const downloadAsset = (dirname, { url, filename }) =>
-  axios
-    .get(url.toString(), { responseType: "arraybuffer" })
-    .then((response) => {
-      const fullPath = path.join(dirname, filename);
-      return fs.writeFile(fullPath, response.data);
-    });
+const downloadAsset = (dirname, { url, filename }) => axios
+  .get(url.toString(), { responseType: 'arraybuffer' })
+  .then((response) => {
+    const fullPath = path.join(dirname, filename);
+    return fs.writeFile(fullPath, response.data);
+  });
 
 // Función principal para descargar una página
-const downloadPage = async (pageUrl, outputDirName = "") => {
+const downloadPage = async (pageUrl, outputDirName = '') => {
   outputDirName = sanitizeOutputDir(outputDirName);
 
-  log("url", pageUrl);
-  log("output", outputDirName);
+  log('url', pageUrl);
+  log('output', outputDirName);
 
   const url = new URL(pageUrl);
   const slug = `${url.hostname}${url.pathname}`;
   const filename = urlToFilename(slug);
   const fullOutputDirname = path.resolve(process.cwd(), outputDirName);
-  const extension = getExtension(filename) === ".html" ? "" : ".html";
+  const extension = getExtension(filename) === '.html' ? '' : '.html';
   const fullOutputFilename = path.join(
     fullOutputDirname,
     `${filename}${extension}`,
@@ -89,7 +88,7 @@ const downloadPage = async (pageUrl, outputDirName = "") => {
 
       data = processResources(url.origin, assetsDirname, html);
       log(
-        "create (if not exists) directory for assets",
+        'create (if not exists) directory for assets',
         fullOutputAssetsDirname,
       );
       return fs
@@ -102,11 +101,10 @@ const downloadPage = async (pageUrl, outputDirName = "") => {
     })
     .then(() => {
       const tasks = data.assets.map((asset) => {
-        log("asset", asset.url.toString(), asset.filename);
+        log('asset', asset.url.toString(), asset.filename);
         return {
           title: asset.url.toString(),
-          task: () =>
-            downloadAsset(fullOutputAssetsDirname, asset).catch(_.noop),
+          task: () => downloadAsset(fullOutputAssetsDirname, asset).catch(_.noop),
         };
       });
 
@@ -118,7 +116,7 @@ const downloadPage = async (pageUrl, outputDirName = "") => {
       return { filepath: fullOutputFilename };
     });
 
-  log("WHAT I RETURN AS PROMISE", promise);
+  log('WHAT I RETURN AS PROMISE', promise);
   return promise;
 };
 
