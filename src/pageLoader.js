@@ -63,7 +63,7 @@ const downloadAsset = (dirname, { url, filename }) => axios
 
 // Función principal para descargar una página
 const downloadPage = async (pageUrl, outputDirName = '') => {
-  outputDirName = sanitizeOutputDir(outputDirName);
+  outputDirName = sanitizeOutputDir(outputDirName); // eslint-disable-line no-param-reassign
 
   log('url', pageUrl);
   log('output', outputDirName);
