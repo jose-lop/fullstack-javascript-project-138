@@ -7,10 +7,12 @@
     "page-loader": "./bin/page-loader.js"
   },
   "scripts": {
-  "test": "NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-  "lint": "eslint .",
-  "lint:fix": "eslint . --fix"
-},
+    "start": "node bin/page-loader.js",
+    "test": "NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
   "dependencies": {
     "axios": "^1.13.6",
     "commander": "^11.1.0"

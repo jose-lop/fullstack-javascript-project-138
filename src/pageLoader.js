@@ -1,24 +1,26 @@
 import fs from "fs/promises";
 import path from "path";
 import axios from "axios";
+import { URL } from "url";
 
-const normalize = (url) => {
-  const { hostname, pathname } = new URL(url);
+const pageLoader = async (url, outputDir) => {
+  try {
+    const response = await axios.get(url);
+    const html = response.data;
 
-  const name = `${hostname}${pathname}`
-    .replace(/[^a-zA-Z0-9]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/-$/, "");
+    const parsedUrl = new URL(url);
 
-  return `${name}.html`;
+    const filename = `${parsedUrl.hostname.replace(/\./g, "-")}.html`;
+    const filepath = path.join(outputDir, filename);
+
+    await fs.mkdir(outputDir, { recursive: true });
+
+    await fs.writeFile(filepath, html);
+
+    return filepath;
+  } catch (error) {
+    throw new Error(`Error downloading page: ${error.message}`);
+  }
 };
 
-export default (url, outputDir = process.cwd()) => {
-  const fileName = normalize(url);
-  const filePath = path.join(outputDir, fileName);
-
-  return axios
-    .get(url)
-    .then((response) => fs.writeFile(filePath, response.data))
-    .then(() => filePath);
-};
+export default pageLoader;
